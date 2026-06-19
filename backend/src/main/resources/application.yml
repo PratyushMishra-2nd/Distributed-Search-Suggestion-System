@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: distributed-search-suggestion
+
+# --- Application tuning knobs (all documented in docs/ARCHITECTURE.md) ---
+app:
+  suggest:
+    top-k: 10                 # number of suggestions returned per prefix
+  cache:
+    shards: 4                 # number of simulated cache nodes on the ring
+    virtual-nodes: 150        # virtual nodes per shard (smooths key distribution)
+    ttl-ms: 30000             # cache entry time-to-live
+    max-entries-per-shard: 10000
+    profile-key-length: 2     # how many leading chars decide the owning shard
+  batch:
+    size: 500                 # flush when buffer reaches this many submissions
+    flush-interval-ms: 2000   # ...or at least this often
+  trending:
+    half-life-sec: 300        # recency decay half-life for trending score
+    window-size: 50           # how many trending queries to track in detail
+  dataset:
+    # Full hourly dump downloaded by scripts/fetch-dataset.sh; falls back to
+    # the bundled sample on the classpath if this file is absent.
+    file: ./data/pageviews
+    sample-classpath: data/pageviews-sample.txt
+    min-views: 1
+    project-filter: en        # keep only English Wikipedia rows
+
+logging:
+  level:
+    com.dsss: INFO

@@ -1,0 +1,19 @@
+# Java / Maven
+backend/target/
+*.class
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+
+# Dataset (downloaded; keep the bundled sample in resources)
+backend/data/
+
+# Playwright scratch
+.playwright-mcp/
+
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/

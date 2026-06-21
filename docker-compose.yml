@@ -1,9 +1,9 @@
-# Real infrastructure for the "docker" profile: 3 standalone Redis nodes
-# (physical cache nodes the consistent-hash ring shards across) + PostgreSQL.
+# Full stack for the "docker" profile: 3 standalone Redis nodes (physical cache
+# nodes the consistent-hash ring shards across) + PostgreSQL + backend + frontend.
 #
 # Usage:
-#   docker compose up -d
-#   cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=docker
+#   docker compose up -d --build
+#   open http://localhost:8081        # frontend (nginx proxies API to backend)
 #
 # Default (no profile) ignores this and uses embedded Redis/Postgres instead.
 services:
@@ -31,6 +31,32 @@ services:
     ports: ["5434:5432"]   # 5434 on host to avoid native (5432) / embedded (5433)
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # Override application-docker.yml's localhost addrs with container hostnames.
+      APP_CACHE_NODES_0: redis-0:6379
+      APP_CACHE_NODES_1: redis-1:6379
+      APP_CACHE_NODES_2: redis-2:6379
+      APP_DB_URL: jdbc:postgresql://postgres:5432/postgres
+    ports: ["8080:8080"]
+    volumes:
+      # Real ORCAS dump lives on the host; container reads ./data/orcas.tsv(.gz).
+      # Populate it first: scripts/fetch-dataset.ps1  (or .sh)
+      - ./backend/data:/app/data
+    depends_on:
+      - redis-0
+      - redis-1
+      - redis-2
+      - postgres
+
+  frontend:
+    build: ./frontend
+    ports: ["8081:80"]   # nginx serves the SPA and proxies /suggest etc. to backend
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

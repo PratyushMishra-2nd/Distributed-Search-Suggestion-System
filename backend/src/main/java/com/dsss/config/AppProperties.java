@@ -29,19 +29,22 @@ public class AppProperties {
     }
 
     public static class Cache {
-        private int shards = 4;
+        private String server = "localhost:6379";  // the single Redis server
+        private int logicalNodes = 3;               // logical nodes = Redis DBs
+        private boolean embedded = true;
         private int virtualNodes = 150;
         private long ttlMs = 30000;
-        private int maxEntriesPerShard = 10000;
         private int profileKeyLength = 2;
-        public int getShards() { return shards; }
-        public void setShards(int shards) { this.shards = shards; }
+        public String getServer() { return server; }
+        public void setServer(String server) { this.server = server; }
+        public int getLogicalNodes() { return logicalNodes; }
+        public void setLogicalNodes(int n) { this.logicalNodes = n; }
+        public boolean isEmbedded() { return embedded; }
+        public void setEmbedded(boolean embedded) { this.embedded = embedded; }
         public int getVirtualNodes() { return virtualNodes; }
         public void setVirtualNodes(int virtualNodes) { this.virtualNodes = virtualNodes; }
         public long getTtlMs() { return ttlMs; }
         public void setTtlMs(long ttlMs) { this.ttlMs = ttlMs; }
-        public int getMaxEntriesPerShard() { return maxEntriesPerShard; }
-        public void setMaxEntriesPerShard(int v) { this.maxEntriesPerShard = v; }
         public int getProfileKeyLength() { return profileKeyLength; }
         public void setProfileKeyLength(int v) { this.profileKeyLength = v; }
     }

@@ -70,19 +70,32 @@ flowchart TD
   a prefix the top-K is "best within the first N candidates", which the cache
   then serves for free on repeats.
 
-### Caching — consistent hashing
-- N shards (`app.cache.shards`) are placed on a ring with `virtual-nodes` points
-  each. A prefix's **profile key** (leading chars) chooses the shard, so related
-  prefixes (`ja`, `jav`, `java`) land on the **same** shard and keep its working
-  set warm.
-- **Why consistent hashing** over `hash % N`: adding/removing a shard remaps only
+### Caching — consistent hashing over logical Redis nodes
+- The cache is **N logical nodes on a single Redis server**: each logical node
+  is a Redis **logical DB** (`db0`, `db1`, `db2`) on the one server
+  (`app.cache.server`, `app.cache.logical-nodes`). With `app.cache.embedded=true`
+  the backend boots a real `redis-server` binary in-process
+  (`EmbeddedRedisManager`) so it runs with no Docker; set it to `false` to point
+  at external Redis. One server ultimately serves every request.
+- **We own the hashing** (client-side consistent hashing): the logical nodes are
+  placed on a `ConsistentHashRing` with `virtual-nodes` points each. A prefix's
+  **profile key** (leading chars) chooses the logical node, so related prefixes
+  (`ja`, `jav`, `java`) land on the **same** node (same DB) and keep its working
+  set warm. Suggestions are stored as JSON under `sugg:<prefix>`; each `JedisPool`
+  is pinned to its node's DB index, so the DBs stay isolated.
+- **Why consistent hashing** over `hash % N`: adding/removing a node remaps only
   the keys on the adjacent ring arcs instead of reshuffling every key — the
   property a real distributed cache needs for elastic scaling. Virtual nodes keep
-  the per-shard load balanced. `GET /cache/debug` exposes the owning shard and
-  per-shard hit/miss so this is observable.
-- **Eviction**: each entry has a TTL (`ttl-ms`); shards also cap size with LRU.
-  So the cache "does not remain forever" and stale rankings age out even without
-  an explicit invalidation.
+  the per-node load balanced. `GET /cache/debug` exposes the owning node and
+  per-node hit/miss (entries = that DB's `DBSIZE`) so this is observable.
+- **Eviction**: each entry is written with a Redis TTL (`ttl-ms`, via `SETEX`);
+  nodes also run `maxmemory` + `allkeys-lru`. So the cache "does not remain
+  forever" and stale rankings age out even without an explicit invalidation.
+- **Resilience (degrade-to-miss)**: every Redis call in `RedisCacheNode` is
+  guarded. If a node is unreachable, a read returns a miss (the result is
+  recomputed from the store) and writes are dropped — the request still returns
+  `200`, with one warning logged per outage. The cache is an optimisation, never
+  a hard dependency.
 
 ### Cache invalidation vs. freshness
 - On flush, every prefix of a changed query is invalidated on its owning shard,
@@ -121,9 +134,12 @@ flowchart TD
   `GET /metrics` reports p50/p95/p99 and the batch write-reduction ratio.
 
 ## Mapping to a real distributed deployment
-| Simulated here              | Real system                              |
-|-----------------------------|------------------------------------------|
-| In-memory cache shards      | Separate cache nodes (e.g. Redis) on a hash ring |
-| Background batch-writer      | Stream consumer flushing to a database  |
-| `SearchCountStore`          | Sharded/replicated datastore             |
-| Profile-key routing         | Client- or proxy-side consistent hashing |
+| Component                   | This build                                | Full production                          |
+|-----------------------------|-------------------------------------------|-----------------------------------------|
+| Cache nodes                 | N **logical** nodes (Redis DBs) on one embedded server | Physical Redis nodes across hosts |
+| Cache routing               | Our `ConsistentHashRing` (client-side)    | Same ring, or a proxy doing the hashing |
+| Background batch-writer     | In-process thread + in-memory buffer      | Stream consumer flushing to a database  |
+| `SearchCountStore`          | In-memory Trie + count map                | Sharded/replicated datastore            |
+
+The cache layer is genuinely Redis already; only the primary store and the batch
+buffer remain in-process (the simulated database).

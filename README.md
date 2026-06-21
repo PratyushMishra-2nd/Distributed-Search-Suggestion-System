@@ -7,8 +7,10 @@ backend is designed as a **distributed data system** — even though it runs in 
 single process for the assignment, it simulates the pieces that matter:
 
 - **Typeahead API** — `GET /suggest?q=<prefix>` → top-K by count (Trie + heap).
-- **Caching with consistent hashing** — prefixes are routed to one of N cache
-  shards via a consistent-hash ring; entries have TTL + LRU eviction.
+- **Caching with consistent hashing** — prefixes are routed to one of N **logical
+  cache nodes** (Redis logical DBs on a single Redis server) via our own
+  consistent-hash ring; entries have a TTL and degrade to a cache-miss if Redis
+  is unreachable.
 - **Batch writes** — search submissions are buffered and flushed in aggregate so
   the primary store sees far fewer writes than there are searches.
 - **Trending** — a recency-aware (time-decayed) ranking alongside a basic
@@ -53,9 +55,18 @@ cd backend
 mvn spring-boot:run
 ```
 
-On startup it loads the dataset. With no downloaded dump it falls back to the
-bundled sample (`backend/src/main/resources/data/pageviews-sample.txt`, ~120
-queries) so the app always boots.
+On startup it loads the dataset **and boots a real Redis server** (embedded — a
+bundled `redis-server` binary on port 6379, no Docker needed) hosting **3
+logical cache nodes** (Redis logical DBs 0/1/2), and shuts it down on exit. With
+no downloaded dump it falls back to the bundled sample
+(`backend/src/main/resources/data/pageviews-sample.txt`, ~120 queries) so the
+app always boots.
+
+> **Cache nodes.** A single Redis server holds N *logical* nodes
+> (`app.cache.logical-nodes`, one logical DB each). `app.cache.embedded: true`
+> (default) runs that server in-process; set it to `false` and point
+> `app.cache.server` at external Redis. Either way our consistent-hash ring
+> (`CacheRouter`) decides which logical node owns each prefix.
 
 **2. Frontend** (port 5173, proxies the API to 8080):
 

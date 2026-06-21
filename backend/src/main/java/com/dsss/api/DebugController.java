@@ -1,7 +1,7 @@
 package com.dsss.api;
 
+import com.dsss.cache.CacheNode;
 import com.dsss.cache.CacheRouter;
-import com.dsss.cache.CacheShard;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,21 +28,20 @@ public class DebugController {
 
     @GetMapping("/cache/debug")
     public Map<String, Object> debug(@RequestParam(name = "prefix", defaultValue = "") String prefix) {
-        long now = System.currentTimeMillis();
         Map<String, Object> out = new LinkedHashMap<>();
 
         if (!prefix.isBlank()) {
-            CacheShard owner = cache.shardFor(prefix);
+            CacheNode owner = cache.shardFor(prefix);
             Map<String, Object> routing = new LinkedHashMap<>();
             routing.put("prefix", prefix);
             routing.put("profileKey", cache.profileKey(prefix));
             routing.put("ownerShard", owner.id());
-            routing.put("cached", owner.contains(prefix, now));
+            routing.put("cached", owner.contains(prefix));
             out.put("routing", routing);
         }
 
         List<Map<String, Object>> shardStats = new ArrayList<>();
-        for (CacheShard s : cache.shards().values()) {
+        for (CacheNode s : cache.shards().values()) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("shard", s.id());
             m.put("entries", s.entryCount());

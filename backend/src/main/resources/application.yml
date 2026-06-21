@@ -10,11 +10,16 @@ app:
   suggest:
     top-k: 10                 # number of suggestions returned per prefix
   cache:
-    shards: 4                 # number of simulated cache nodes on the ring
-    virtual-nodes: 150        # virtual nodes per shard (smooths key distribution)
-    ttl-ms: 30000             # cache entry time-to-live
-    max-entries-per-shard: 10000
-    profile-key-length: 2     # how many leading chars decide the owning shard
+    # A single Redis server holds N *logical* cache nodes (one Redis logical DB
+    # each). Our ConsistentHashRing (client-side consistent hashing) decides
+    # which logical node owns a prefix; one server serves every request.
+    server: localhost:6379    # the single Redis server
+    logical-nodes: 3          # logical nodes = Redis DBs 0..N-1 on that server
+    embedded: true            # true = backend boots a real redis-server binary
+                              #        (no Docker). false = external Redis.
+    virtual-nodes: 150        # virtual nodes per logical node (smooths spread)
+    ttl-ms: 30000             # cache entry time-to-live (Redis EX)
+    profile-key-length: 2     # how many leading chars decide the owning node
   batch:
     size: 500                 # flush when buffer reaches this many submissions
     flush-interval-ms: 2000   # ...or at least this often

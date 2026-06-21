@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import useDebounce from '../useDebounce'
 import { fetchSuggestions } from '../api'
 
+// Minimum prefix length before a suggestion lookup fires.
+const MIN_PREFIX = 3
+
 /** Split a query into [matchedPrefix, rest] so the typed prefix can be marked. */
 function splitMatch(query, prefix) {
   const n = query.toLowerCase().startsWith(prefix.toLowerCase()) ? prefix.length : 0
@@ -28,7 +31,8 @@ export default function SearchBox({ onSubmitSearch, onTelemetry }) {
   const prefix = debounced.trim()
 
   useEffect(() => {
-    if (!prefix) {
+    // Gate: don't query until the user has typed MIN_PREFIX characters.
+    if (prefix.length < MIN_PREFIX) {
       setResults([])
       setOpen(false)
       setError(null)
@@ -102,6 +106,13 @@ export default function SearchBox({ onSubmitSearch, onTelemetry }) {
       </div>
 
       {error && <div className="error" role="alert">{error}</div>}
+
+      {prefix.length > 0 && prefix.length < MIN_PREFIX && (
+        <div className="hint">
+          {MIN_PREFIX - prefix.length} more character
+          {MIN_PREFIX - prefix.length > 1 ? 's' : ''} to search…
+        </div>
+      )}
 
       {open && results.length > 0 && (
         <ul className="results" role="listbox">

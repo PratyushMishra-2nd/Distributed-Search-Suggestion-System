@@ -20,7 +20,17 @@ Top-K typeahead suggestions for a prefix, sorted by search count descending.
 ]
 ```
 Behaviour: empty `q` → `[]`; no prefix match → `[]`; `JaV` == `jav`. Results are
-served from cache when warm (see `/cache/debug`).
+served from a Redis cache node when warm (see `/cache/debug`).
+
+Response headers expose retrieval telemetry:
+
+| Header    | Example           | Meaning                                       |
+|-----------|-------------------|-----------------------------------------------|
+| `X-Cache` | `HIT` / `MISS`    | Whether the cache served the prefix           |
+| `X-Shard` | `logical-node-0`  | The logical node (Redis DB) that owns it       |
+
+The endpoint itself accepts any prefix length; the UI gates lookups at **3+
+characters** to avoid very broad, low-value queries.
 
 ---
 
@@ -75,12 +85,12 @@ Inspect consistent-hash routing and per-shard cache stats.
   "routing": {
     "prefix": "java",
     "profileKey": "ja",
-    "ownerShard": "cache-node-1",
+    "ownerShard": "logical-node-0",
     "cached": true
   },
   "shards": [
-    { "shard": "cache-node-0", "entries": 0, "hits": 0, "misses": 0, "hitRate": 0.0 },
-    { "shard": "cache-node-1", "entries": 5, "hits": 120, "misses": 18, "hitRate": 0.87 }
+    { "shard": "logical-node-0", "entries": 5, "hits": 120, "misses": 18, "hitRate": 0.87 },
+    { "shard": "logical-node-1", "entries": 0, "hits": 0, "misses": 0, "hitRate": 0.0 }
   ]
 }
 ```

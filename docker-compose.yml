@@ -32,6 +32,24 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Downloads the real ORCAS dump into the shared data volume once (skips if
+  # already present), then exits. Backend waits for it to finish.
+  dataset-init:
+    image: curlimages/curl:8.10.1
+    volumes:
+      - ./backend/data:/data
+    command:
+      - sh
+      - -c
+      - >
+        if [ -f /data/orcas.tsv.gz ] || [ -f /data/orcas.tsv ]; then
+          echo "ORCAS already present, skipping download";
+        else
+          echo "Downloading ORCAS (~330MB)...";
+          curl -fL --retry 3 -o /data/orcas.tsv.gz
+          https://msmarco.z22.web.core.windows.net/msmarcoranking/orcas.tsv.gz;
+        fi
+
   backend:
     build: ./backend
     environment:
@@ -47,10 +65,16 @@ services:
       # Populate it first: scripts/fetch-dataset.ps1  (or .sh)
       - ./backend/data:/app/data
     depends_on:
-      - redis-0
-      - redis-1
-      - redis-2
-      - postgres
+      dataset-init:
+        condition: service_completed_successfully
+      redis-0:
+        condition: service_started
+      redis-1:
+        condition: service_started
+      redis-2:
+        condition: service_started
+      postgres:
+        condition: service_started
 
   frontend:
     build: ./frontend

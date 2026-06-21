@@ -2,6 +2,7 @@ package com.dsss.batch;
 
 import com.dsss.cache.CacheRouter;
 import com.dsss.config.AppProperties;
+import com.dsss.persistence.QueryCountRepository;
 import com.dsss.store.SearchCountStore;
 import com.dsss.trending.TrendingService;
 import jakarta.annotation.PreDestroy;
@@ -38,6 +39,7 @@ public class BatchWriter {
     private final SearchCountStore store;
     private final CacheRouter cacheRouter;
     private final TrendingService trending;
+    private final QueryCountRepository repo;
     private final int batchSize;
 
     private final ConcurrentLinkedQueue<String> buffer = new ConcurrentLinkedQueue<>();
@@ -50,10 +52,12 @@ public class BatchWriter {
     private final AtomicLong flushCount = new AtomicLong();
 
     public BatchWriter(SearchCountStore store, CacheRouter cacheRouter,
-                       TrendingService trending, AppProperties props) {
+                       TrendingService trending, QueryCountRepository repo,
+                       AppProperties props) {
         this.store = store;
         this.cacheRouter = cacheRouter;
         this.trending = trending;
+        this.repo = repo;
         this.batchSize = props.getBatch().getSize();
     }
 
@@ -101,6 +105,13 @@ public class BatchWriter {
                 trending.record(e.getKey(), e.getValue(), now);
                 // counts changed -> drop any stale cached prefixes of this query
                 invalidatePrefixes(e.getKey());
+            }
+            // Durable write: one aggregated upsert batch to Postgres. Guarded so
+            // a DB hiccup never loses the in-memory update or fails the flush.
+            try {
+                repo.incrementBatch(agg);
+            } catch (Exception ex) {
+                log.warn("postgres flush failed ({} queries): {}", agg.size(), ex.getMessage());
             }
             totalStoreWrites.addAndGet(agg.size());
             flushCount.incrementAndGet();

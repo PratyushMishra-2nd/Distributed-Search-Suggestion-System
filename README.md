@@ -6,6 +6,8 @@ queries ranked by search count. Submitting a search updates the counts. The
 backend is designed as a **distributed data system** — even though it runs in a
 single process for the assignment, it simulates the pieces that matter:
 
+- **Durable store** — counts persist in **PostgreSQL** (embedded, no Docker); the
+  in-memory Trie is rebuilt from it on restart. First run seeds from ORCAS.
 - **Typeahead API** — `GET /suggest?q=<prefix>` → top-K by count (Trie + heap).
 - **Caching with consistent hashing** — prefixes are routed to one of N **logical
   cache nodes** (Redis logical DBs on a single Redis server) via our own
@@ -18,9 +20,11 @@ single process for the assignment, it simulates the pieces that matter:
 
 | Layer    | Tech                          |
 |----------|-------------------------------|
-| Backend  | Java 17 · Spring Boot 3.3     |
-| Frontend | React 18 · Vite 5             |
-| Dataset  | Wikipedia pageviews (public)  |
+| Backend  | Java 17 · Spring Boot 3.3            |
+| Frontend | React 18 · Vite 5                   |
+| Store    | PostgreSQL (embedded) — durable     |
+| Cache    | Redis (embedded) · logical nodes    |
+| Dataset  | ORCAS — real Bing queries (public)  |
 
 ![Suggestions dropdown](screenshots/ui-suggestions.png)
 
@@ -29,12 +33,13 @@ single process for the assignment, it simulates the pieces that matter:
 ```
 React (Vite) UI ──HTTP──> Spring Boot backend
   SearchBox (debounce, keyboard nav)        ├─ api/        controllers
-  Suggestions dropdown                      ├─ cache/      consistent-hash ring + N shards (TTL/LRU)
+  Suggestions dropdown                      ├─ cache/      consistent-hash ring + Redis logical nodes
   Trending section (recency | basic)        ├─ store/      SearchCountStore (Trie + count map)
-                                            ├─ batch/      BatchWriter (buffer + background flush)
+                                            ├─ persistence/ PostgreSQL durable store (embedded)
+                                            ├─ batch/      BatchWriter (buffer → store + Postgres)
                                             ├─ trending/   recency-aware scoring
                                             ├─ perf/       per-endpoint latency (p95)
-                                            └─ loader/     Wikipedia pageviews loader
+                                            └─ loader/     ORCAS seed + PG-first init
 ```
 
 Full design + trade-offs: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -55,11 +60,15 @@ cd backend
 mvn spring-boot:run
 ```
 
-On startup it loads the dataset **and boots a real Redis server** (embedded — a
-bundled `redis-server` binary on port 6379, no Docker needed) hosting **3
-logical cache nodes** (Redis logical DBs 0/1/2), and shuts it down on exit. With
-no downloaded dump it falls back to the bundled sample
-(`backend/src/main/resources/data/pageviews-sample.txt`, ~120 queries) so the
+On startup it boots two embedded servers (no Docker), shutting them down on exit:
+- **PostgreSQL** (bundled binary, port 5433) — durable store, persists to
+  `backend/data/pgdata`. First run seeds it from ORCAS (~50s); later runs load
+  straight from the DB.
+- **Redis** (bundled binary, port 6379) — **3 logical cache nodes** (logical
+  DBs 0/1/2).
+
+With no downloaded ORCAS dump it seeds from the bundled sample
+(`backend/src/main/resources/data/orcas-sample.tsv`, ~60 real queries) so the
 app always boots.
 
 > **Cache nodes.** A single Redis server holds N *logical* nodes
@@ -78,21 +87,25 @@ npm run dev
 
 Open <http://localhost:5173>.
 
-## Use the full dataset (>100k queries)
+## Use the full dataset (~10M real queries)
 
-Download one hourly Wikipedia pageviews dump and restart the backend:
+Download the full ORCAS dump and restart the backend:
 
 ```bash
 # bash
-scripts/fetch-dataset.sh                 # default date
-scripts/fetch-dataset.sh 2024 11 01 12   # YYYY MM DD HH (UTC)
+scripts/fetch-dataset.sh
 
 # windows
 powershell -File scripts/fetch-dataset.ps1
 ```
 
-It saves `backend/data/pageviews.gz`; the loader reads gzip directly and keeps
-English-Wikipedia rows whose view count becomes the initial search count.
+It saves `backend/data/orcas.tsv.gz` (~330 MB compressed, ~18M rows). The loader
+reads gzip directly, scans the whole file, and keeps **1 in `app.dataset.sample-mod`**
+queries by a stable hash (default 8) — so the kept set spans the entire file
+while memory stays bounded; every click row of a kept query is still counted, so
+its popularity is exact. Default yields **~1.3M distinct queries**. Set
+`sample-mod: 1` to keep everything (needs a large heap, ~10M queries). To use
+Wikipedia pageviews instead, set `app.dataset.format: pageviews`.
 
 ## Quick API check
 

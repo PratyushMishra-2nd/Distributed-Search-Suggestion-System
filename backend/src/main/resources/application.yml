@@ -23,16 +23,31 @@ app:
   batch:
     size: 500                 # flush when buffer reaches this many submissions
     flush-interval-ms: 2000   # ...or at least this often
+  db:
+    # Durable primary store. Embedded Postgres boots a real postgres binary
+    # in-process (no Docker) and persists to data-dir across restarts.
+    embedded: true
+    port: 5433
+    data-dir: ./data/pgdata
+    seed-batch-size: 5000     # rows per batch when first-run seeding from ORCAS
+    # Used only when embedded=false (external Postgres):
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: postgres
   trending:
     half-life-sec: 300        # recency decay half-life for trending score
     window-size: 50           # how many trending queries to track in detail
   dataset:
-    # Full hourly dump downloaded by scripts/fetch-dataset.sh; falls back to
-    # the bundled sample on the classpath if this file is absent.
-    file: ./data/pageviews
-    sample-classpath: data/pageviews-sample.txt
-    min-views: 1
-    project-filter: en        # keep only English Wikipedia rows
+    # ORCAS (Microsoft): real Bing search queries with click counts.
+    # Full dump downloaded by scripts/fetch-dataset.sh; falls back to the
+    # bundled sample on the classpath if the file is absent.
+    format: orcas             # orcas | pageviews
+    file: ./data/orcas.tsv    # external dump (also tries <file>.gz)
+    sample-classpath: data/orcas-sample.tsv
+    max-rows: 25000000        # safety cap on rows read (full ORCAS ~18M)
+    sample-mod: 8             # keep 1 in N queries by hash (bounds memory, spans whole file)
+    min-views: 1              # pageviews only: min view count
+    project-filter: en        # pageviews only: keep this Wikipedia project
 
 logging:
   level:

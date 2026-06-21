@@ -30,8 +30,8 @@ export default function App() {
           <span className="wordmark-text">prefix</span>
         </div>
         <p className="tagline">
-          A retrieval console over a Wikipedia-pageviews index — consistent-hash
-          cache, batched writes, recency-aware trending.
+          A retrieval console over real Bing search queries (ORCAS) —
+          consistent-hash Redis cache, batched writes, recency-aware trending.
         </p>
       </header>
 

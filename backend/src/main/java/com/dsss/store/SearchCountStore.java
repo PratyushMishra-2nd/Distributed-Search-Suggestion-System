@@ -56,6 +56,11 @@ public class SearchCountStore {
         return counts.size();
     }
 
+    /** Iterate every query and its current count (used to seed Postgres). */
+    public void forEach(java.util.function.ObjLongConsumer<String> consumer) {
+        counts.forEach((q, v) -> consumer.accept(q, v.get()));
+    }
+
     /**
      * Top-{@code k} suggestions for a prefix, sorted by count descending.
      * Empty/blank prefix -> empty list. No match -> empty list.

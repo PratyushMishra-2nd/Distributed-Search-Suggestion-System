@@ -48,17 +48,32 @@ public class CacheRouter {
     @PostConstruct
     void init() {
         AppProperties.Cache cfg = props.getCache();
-        String server = cfg.getServer();
-        int idx = server.lastIndexOf(':');
-        String host = server.substring(0, idx);
-        int port = Integer.parseInt(server.substring(idx + 1).trim());
 
-        for (int db = 0; db < cfg.getLogicalNodes(); db++) {
-            String id = "logical-node-" + db;
-            RedisCacheNode node = new RedisCacheNode(id, host, port, db, cfg.getTtlMs(), mapper);
-            nodes.put(id, node);
-            log.info("{} -> {} db{} {}", id, server, db,
-                    node.ping() ? "UP" : "DOWN (will degrade to miss)");
+        if (cfg.getNodes() != null && !cfg.getNodes().isEmpty()) {
+            // Physical mode: each endpoint is a separate Redis server (e.g. the
+            // Docker containers). One cache node per server, DB 0.
+            for (String endpoint : cfg.getNodes()) {
+                int idx = endpoint.lastIndexOf(':');
+                String host = endpoint.substring(0, idx);
+                int port = Integer.parseInt(endpoint.substring(idx + 1).trim());
+                RedisCacheNode node = new RedisCacheNode(endpoint, host, port, 0, cfg.getTtlMs(), mapper);
+                nodes.put(endpoint, node);
+                log.info("cache node {} (physical) {}", endpoint,
+                        node.ping() ? "UP" : "DOWN (will degrade to miss)");
+            }
+        } else {
+            // Logical mode: one server, N logical nodes = Redis DBs 0..N-1.
+            String server = cfg.getServer();
+            int idx = server.lastIndexOf(':');
+            String host = server.substring(0, idx);
+            int port = Integer.parseInt(server.substring(idx + 1).trim());
+            for (int db = 0; db < cfg.getLogicalNodes(); db++) {
+                String id = "logical-node-" + db;
+                RedisCacheNode node = new RedisCacheNode(id, host, port, db, cfg.getTtlMs(), mapper);
+                nodes.put(id, node);
+                log.info("{} -> {} db{} {}", id, server, db,
+                        node.ping() ? "UP" : "DOWN (will degrade to miss)");
+            }
         }
         this.ring = new ConsistentHashRing(nodes.keySet(), cfg.getVirtualNodes());
     }

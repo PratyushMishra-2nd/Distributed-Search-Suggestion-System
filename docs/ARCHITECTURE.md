@@ -24,7 +24,7 @@ flowchart TD
     STORE["SearchCountStore<br/>Trie + count map<br/>(primary store)"]
     BATCH["BatchWriter<br/>buffer + scheduled flush"]
     TREND["TrendingService<br/>time-decay scores"]
-    LOAD["DatasetLoader<br/>Wikipedia pageviews"]
+    LOAD["DatasetLoader<br/>ORCAS queries"]
   end
 
   UI -->|GET /suggest| SUG
@@ -138,8 +138,9 @@ flowchart TD
 |-----------------------------|-------------------------------------------|-----------------------------------------|
 | Cache nodes                 | N **logical** nodes (Redis DBs) on one embedded server | Physical Redis nodes across hosts |
 | Cache routing               | Our `ConsistentHashRing` (client-side)    | Same ring, or a proxy doing the hashing |
-| Background batch-writer     | In-process thread + in-memory buffer      | Stream consumer flushing to a database  |
-| `SearchCountStore`          | In-memory Trie + count map                | Sharded/replicated datastore            |
+| Durable store               | **PostgreSQL** (embedded binary, local)   | Managed/sharded Postgres cluster        |
+| Read index                  | In-memory Trie rebuilt from Postgres      | Same, or a dedicated search index       |
+| Background batch-writer     | In-process thread + in-memory buffer      | Stream consumer flushing to the database |
 
-The cache layer is genuinely Redis already; only the primary store and the batch
-buffer remain in-process (the simulated database).
+Both the cache (Redis) and the durable store (Postgres) are genuinely real; only
+the batch buffer and the trie read-index live in-process.

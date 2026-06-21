@@ -1,0 +1,129 @@
+Q1	java tutorial	D1	https://example.com/a
+Q1	java tutorial	D2	https://example.com/b
+Q1	java tutorial	D3	https://example.com/c
+Q1	java tutorial	D4	https://example.com/d
+Q1	java tutorial	D5	https://example.com/e
+Q2	javascript array methods	D6	https://example.com/f
+Q2	javascript array methods	D7	https://example.com/g
+Q2	javascript array methods	D8	https://example.com/h
+Q2	javascript array methods	D9	https://example.com/i
+Q3	java spring boot	D10	https://example.com/j
+Q3	java spring boot	D11	https://example.com/k
+Q3	java spring boot	D12	https://example.com/l
+Q4	javascript promises	D13	https://example.com/m
+Q4	javascript promises	D14	https://example.com/n
+Q5	java vs python	D15	https://example.com/o
+Q5	java vs python	D16	https://example.com/p
+Q6	python pandas dataframe	D17	https://example.com/q
+Q6	python pandas dataframe	D18	https://example.com/r
+Q6	python pandas dataframe	D19	https://example.com/s
+Q6	python pandas dataframe	D20	https://example.com/t
+Q7	python list comprehension	D21	https://example.com/u
+Q7	python list comprehension	D22	https://example.com/v
+Q7	python list comprehension	D23	https://example.com/w
+Q8	python requests library	D24	https://example.com/x
+Q8	python requests library	D25	https://example.com/y
+Q9	python virtual environment	D26	https://example.com/z
+Q10	pytorch tutorial	D27	https://example.com/aa
+Q10	pytorch tutorial	D28	https://example.com/ab
+Q11	react hooks tutorial	D29	https://example.com/ac
+Q11	react hooks tutorial	D30	https://example.com/ad
+Q11	react hooks tutorial	D31	https://example.com/ae
+Q11	react hooks tutorial	D32	https://example.com/af
+Q12	react useeffect example	D33	https://example.com/ag
+Q12	react useeffect example	D34	https://example.com/ah
+Q13	react router v6	D35	https://example.com/ai
+Q13	react router v6	D36	https://example.com/aj
+Q14	redux toolkit	D37	https://example.com/ak
+Q15	redis caching strategies	D38	https://example.com/al
+Q15	redis caching strategies	D39	https://example.com/am
+Q15	redis caching strategies	D40	https://example.com/an
+Q16	redis vs memcached	D41	https://example.com/ao
+Q16	redis vs memcached	D42	https://example.com/ap
+Q17	nodejs express tutorial	D43	https://example.com/aq
+Q17	nodejs express tutorial	D44	https://example.com/ar
+Q17	nodejs express tutorial	D45	https://example.com/as
+Q18	node streams explained	D46	https://example.com/at
+Q19	nginx reverse proxy config	D47	https://example.com/au
+Q19	nginx reverse proxy config	D48	https://example.com/av
+Q20	kubernetes pods vs deployments	D49	https://example.com/aw
+Q20	kubernetes pods vs deployments	D50	https://example.com/ax
+Q20	kubernetes pods vs deployments	D51	https://example.com/ay
+Q21	kubernetes ingress example	D52	https://example.com/az
+Q22	docker compose tutorial	D53	https://example.com/ba
+Q22	docker compose tutorial	D54	https://example.com/bb
+Q22	docker compose tutorial	D55	https://example.com/bc
+Q23	docker multistage build	D56	https://example.com/bd
+Q24	sql join types	D57	https://example.com/be
+Q24	sql join types	D58	https://example.com/bf
+Q24	sql join types	D59	https://example.com/bg
+Q24	sql join types	D60	https://example.com/bh
+Q25	sql window functions	D61	https://example.com/bi
+Q25	sql window functions	D62	https://example.com/bj
+Q26	sqlite vs postgres	D63	https://example.com/bk
+Q27	postgresql index tuning	D64	https://example.com/bl
+Q27	postgresql index tuning	D65	https://example.com/bm
+Q28	mysql replication setup	D66	https://example.com/bn
+Q29	mongodb aggregation pipeline	D67	https://example.com/bo
+Q29	mongodb aggregation pipeline	D68	https://example.com/bp
+Q30	machine learning algorithms	D69	https://example.com/bq
+Q30	machine learning algorithms	D70	https://example.com/br
+Q30	machine learning algorithms	D71	https://example.com/bs
+Q30	machine learning algorithms	D72	https://example.com/bt
+Q31	machine learning vs deep learning	D73	https://example.com/bu
+Q32	consistent hashing explained	D74	https://example.com/bv
+Q32	consistent hashing explained	D75	https://example.com/bw
+Q33	distributed systems basics	D76	https://example.com/bx
+Q33	distributed systems basics	D77	https://example.com/by
+Q34	data structures interview	D78	https://example.com/bz
+Q34	data structures interview	D79	https://example.com/ca
+Q34	data structures interview	D80	https://example.com/cb
+Q35	database indexing explained	D81	https://example.com/cc
+Q36	cloud computing basics	D82	https://example.com/cd
+Q36	cloud computing basics	D83	https://example.com/ce
+Q37	aws lambda tutorial	D84	https://example.com/cf
+Q37	aws lambda tutorial	D85	https://example.com/cg
+Q37	aws lambda tutorial	D86	https://example.com/ch
+Q38	aws s3 bucket policy	D87	https://example.com/ci
+Q39	azure functions example	D88	https://example.com/cj
+Q40	google cloud run	D89	https://example.com/ck
+Q40	google cloud run	D90	https://example.com/cl
+Q41	git rebase vs merge	D91	https://example.com/cm
+Q41	git rebase vs merge	D92	https://example.com/cn
+Q41	git rebase vs merge	D93	https://example.com/co
+Q42	github actions ci	D94	https://example.com/cp
+Q42	github actions ci	D95	https://example.com/cq
+Q43	elasticsearch query dsl	D96	https://example.com/cr
+Q43	elasticsearch query dsl	D97	https://example.com/cs
+Q44	kafka consumer group	D98	https://example.com/ct
+Q44	kafka consumer group	D99	https://example.com/cu
+Q45	graphql vs rest	D100	https://example.com/cv
+Q45	graphql vs rest	D101	https://example.com/cw
+Q46	typescript generics	D102	https://example.com/cx
+Q46	typescript generics	D103	https://example.com/cy
+Q47	rust ownership explained	D104	https://example.com/cz
+Q48	golang goroutines	D105	https://example.com/da
+Q48	golang goroutines	D106	https://example.com/db
+Q49	linux command line basics	D107	https://example.com/dc
+Q49	linux command line basics	D108	https://example.com/dd
+Q49	linux command line basics	D109	https://example.com/de
+Q50	how to center a div	D110	https://example.com/df
+Q50	how to center a div	D111	https://example.com/dg
+Q50	how to center a div	D112	https://example.com/dh
+Q50	how to center a div	D113	https://example.com/di
+Q51	rest api best practices	D114	https://example.com/dj
+Q51	rest api best practices	D115	https://example.com/dk
+Q52	http status codes	D116	https://example.com/dl
+Q52	http status codes	D117	https://example.com/dm
+Q53	oauth2 flow explained	D118	https://example.com/dn
+Q54	jwt authentication	D119	https://example.com/do
+Q54	jwt authentication	D120	https://example.com/dp
+Q55	binary search algorithm	D121	https://example.com/dq
+Q55	binary search algorithm	D122	https://example.com/dr
+Q56	big o notation	D123	https://example.com/ds
+Q56	big o notation	D124	https://example.com/dt
+Q57	load balancing algorithms	D125	https://example.com/du
+Q58	message queue vs pubsub	D126	https://example.com/dv
+Q59	caching strategies web	D127	https://example.com/dw
+Q60	web scraping python	D128	https://example.com/dx
+Q60	web scraping python	D129	https://example.com/dy

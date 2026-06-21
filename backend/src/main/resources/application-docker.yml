@@ -1,0 +1,16 @@
+# "docker" profile — use the real containers from docker-compose.yml instead of
+# embedded Redis/Postgres. Activate with:
+#   mvn spring-boot:run -Dspring-boot.run.profiles=docker
+# (or SPRING_PROFILES_ACTIVE=docker)
+app:
+  cache:
+    embedded: false          # don't start embedded Redis; connect to containers
+    nodes:                   # 3 physical Redis containers = 3 cache nodes
+      - localhost:6379
+      - localhost:6380
+      - localhost:6381
+  db:
+    embedded: false          # connect to the Postgres container
+    url: jdbc:postgresql://localhost:5434/postgres
+    username: postgres
+    password: postgres

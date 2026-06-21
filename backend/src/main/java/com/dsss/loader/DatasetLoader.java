@@ -4,8 +4,6 @@ import com.dsss.config.AppProperties;
 import com.dsss.store.SearchCountStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -21,19 +19,23 @@ import java.util.zip.GZIPInputStream;
 /**
  * Loads the search-count seed data on startup.
  *
- * Source = Wikipedia pageviews dump, a public dataset where each row is
- *   {@code <project> <title> <viewcount> <bytes>}
- * and the view count is used directly as the initial search count. We keep only
- * the configured project (default English Wikipedia) and skip Wikipedia
- * meta-pages. Titles are URL-decoded and underscores become spaces so they read
- * like real queries ("Java (programming language)").
+ * Default source = <b>ORCAS</b> (Microsoft's Open Resource for Click Analysis in
+ * Search): real Bing search queries. Each TSV row is
+ *   {@code <queryId> \t <query> \t <docId> \t <url>}
+ * and every row is one observed click, so aggregating rows per query yields a
+ * real popularity count used as the initial search count.
+ *
+ * {@code app.dataset.format=pageviews} switches to the Wikipedia pageviews
+ * format ({@code <project> <title> <viewcount> <bytes>}) instead.
  *
  * Resolution order: the external file at {@code app.dataset.file} (optionally
- * gzipped) if present, otherwise the small bundled classpath sample so the app
- * always boots. Run scripts/fetch-dataset.sh to pull a full >100k-row dump.
+ * {@code .gz}) if present, otherwise the small bundled classpath sample so the
+ * app always boots. {@code app.dataset.max-rows} caps how many rows are read
+ * from a full dump to keep memory bounded. Run scripts/fetch-dataset.sh to pull
+ * the full ORCAS dump.
  */
 @Component
-public class DatasetLoader implements ApplicationRunner {
+public class DatasetLoader {
 
     private static final Logger log = LoggerFactory.getLogger(DatasetLoader.class);
 
@@ -45,8 +47,8 @@ public class DatasetLoader implements ApplicationRunner {
         this.props = props;
     }
 
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
+    /** Parse the dataset (external file or bundled sample) into the in-memory store. */
+    public void loadIntoStore() throws Exception {
         AppProperties.Dataset cfg = props.getDataset();
         Path external = Path.of(cfg.getFile());
         Path externalGz = Path.of(cfg.getFile() + ".gz");
@@ -76,39 +78,88 @@ public class DatasetLoader implements ApplicationRunner {
 
     private long parse(InputStream raw, boolean gzip) throws Exception {
         InputStream in = gzip ? new GZIPInputStream(raw) : raw;
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            return "pageviews".equalsIgnoreCase(props.getDataset().getFormat())
+                    ? parsePageviews(r)
+                    : parseOrcas(r);
+        }
+    }
+
+    /**
+     * ORCAS: {@code queryId \t query \t docId \t url}. Each row is one click;
+     * we add 1 to the query's count per row, so a query clicked across many
+     * documents/sessions accrues a higher popularity. Reading stops at
+     * {@code max-rows}.
+     */
+    private long parseOrcas(BufferedReader r) throws Exception {
+        long maxRows = props.getDataset().getMaxRows();
+        int sampleMod = Math.max(1, props.getDataset().getSampleMod());
+        long rows = 0, kept = 0;
+        String line;
+        while ((line = r.readLine()) != null) {
+            if (rows++ >= maxRows) {
+                log.info("reached max-rows safety cap ({}); stopping load", maxRows);
+                break;
+            }
+            int t1 = line.indexOf('\t');
+            if (t1 < 0) {
+                continue;
+            }
+            int t2 = line.indexOf('\t', t1 + 1);
+            String query = (t2 < 0 ? line.substring(t1 + 1) : line.substring(t1 + 1, t2)).trim();
+            if (query.length() < 2 || query.length() > 80) {
+                continue;
+            }
+            // Keep 1 in `sampleMod` queries by a stable hash so the kept set
+            // spans the whole file (representative) while memory stays bounded.
+            // Every click row of a kept query is still counted, so popularity
+            // counts are exact for the kept set.
+            if (sampleMod > 1 && Math.floorMod(query.hashCode(), sampleMod) != 0) {
+                continue;
+            }
+            store.load(query, 1);
+            kept++;
+        }
+        return kept;
+    }
+
+    /** Wikipedia pageviews: {@code project title viewcount bytes}. */
+    private long parsePageviews(BufferedReader r) throws Exception {
         String project = props.getDataset().getProjectFilter();
         long minViews = props.getDataset().getMinViews();
-        long kept = 0;
-        try (BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = r.readLine()) != null) {
-                String[] parts = line.split(" ");
-                if (parts.length < 3) {
-                    continue;
-                }
-                if (project != null && !project.isEmpty() && !project.equals(parts[0])) {
-                    continue;
-                }
-                String title = parts[1];
-                if (isMetaPage(title)) {
-                    continue;
-                }
-                long views;
-                try {
-                    views = Long.parseLong(parts[2]);
-                } catch (NumberFormatException e) {
-                    continue;
-                }
-                if (views < minViews) {
-                    continue;
-                }
-                String query = cleanTitle(title);
-                if (query.length() < 2) {
-                    continue;
-                }
-                store.load(query, views);
-                kept++;
+        long maxRows = props.getDataset().getMaxRows();
+        long rows = 0, kept = 0;
+        String line;
+        while ((line = r.readLine()) != null) {
+            if (rows++ >= maxRows) {
+                break;
             }
+            String[] parts = line.split(" ");
+            if (parts.length < 3) {
+                continue;
+            }
+            if (project != null && !project.isEmpty() && !project.equals(parts[0])) {
+                continue;
+            }
+            String title = parts[1];
+            if (isMetaPage(title)) {
+                continue;
+            }
+            long views;
+            try {
+                views = Long.parseLong(parts[2]);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (views < minViews) {
+                continue;
+            }
+            String query = cleanTitle(title);
+            if (query.length() < 2) {
+                continue;
+            }
+            store.load(query, views);
+            kept++;
         }
         return kept;
     }

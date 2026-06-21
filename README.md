@@ -124,6 +124,16 @@ Every response carries `X-Cache` (HIT/MISS) and `X-Shard` (owning node).
   (embedded default); *physical nodes* = N separate Redis containers (docker
   profile). `GET /cache/debug` makes the routing observable.
 
+### Deployment shapes
+The same code runs two ways, config-switched:
+- **Embedded (default):** one `mvn spring-boot:run` — real Postgres + Redis
+  binaries boot in-process. Zero infra.
+- **Full docker stack:** `docker compose up -d --build` runs every tier in its own
+  container — 3 Redis, Postgres, the Spring Boot **backend**, and an nginx
+  **frontend** that serves the built React bundle and reverse-proxies the API. A
+  one-shot `dataset-init` container auto-downloads ORCAS into a shared volume
+  before the backend seeds. This is the production-shaped layout.
+
 ![Cache debug](screenshots/cache-debug.png)
 
 ### Boot is PG-first
@@ -160,7 +170,7 @@ in (a valid popularity proxy).
    counts for the kept set).
 7. Insert into PostgreSQL (first run) and build the in-memory Trie.
 
-**Result:** **1,303,031 distinct queries** (13× the 100k minimum).
+**Result:** **1,303,066 distinct queries** (13× the 100k minimum).
 
 ### Loading instructions
 **Zero-download:** a bundled sample
@@ -260,7 +270,7 @@ Operational snapshot.
 **200**
 ```json
 {
-  "distinctQueries": 1303031,
+  "distinctQueries": 1303066,
   "batch": { "totalSubmissions": 5000, "totalStoreWrites": 270,
              "flushCount": 9, "pending": 0, "writeReductionRatio": 0.946 },
   "latency": {
@@ -338,10 +348,11 @@ production-shaped deployment. Same code, config-switched.
 
 # 5. Performance report
 
-Measured on the **docker profile** (3 Redis containers + Postgres), full ORCAS
-(1.3M queries), `node scripts/loadtest.mjs http://localhost:8080 5000 32` (5000
-requests, concurrency 32). Two figures: **client-side** (end-to-end around
-`fetch`) and **server-side** (`/metrics`, network excluded).
+Measured on the **full docker stack** (3 Redis containers + Postgres + backend +
+frontend), full ORCAS (1.3M queries), `node scripts/loadtest.mjs
+http://localhost:8080 5000 32` (5000 requests, concurrency 32). Two figures:
+**client-side** (end-to-end around `fetch`) and **server-side** (`/metrics`,
+network excluded).
 
 ### Read latency — `GET /suggest` (cache hit vs miss)
 | Pass (client-side) | Throughput | p50 | p95 | p99 | max |
@@ -382,8 +393,7 @@ absorbs ~18× fewer writes than there are searches.
 
 ### Reproduce
 ```bash
-docker compose up -d
-cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=docker
+docker compose up -d --build        # full stack: Redis x3 + Postgres + backend + frontend
 node scripts/loadtest.mjs http://localhost:8080 5000 32
 curl http://localhost:8080/metrics
 curl "http://localhost:8080/cache/debug?prefix=weather"
@@ -411,16 +421,41 @@ npm run dev
 ```
 First run seeds PostgreSQL from ORCAS (~50s); later runs load from the DB.
 
-### Docker profile — real containers
+### Docker — full stack in containers (recommended)
+Builds and runs **everything**: 3 Redis + Postgres + backend + frontend. No JDK,
+Maven, or Node needed on the host.
 ```bash
-docker compose up -d        # 3 Redis (6379/80/81) + Postgres (5434)
+docker compose up -d --build
+# frontend → http://localhost:8081   (nginx serves the SPA, proxies API to backend)
+# backend  → http://localhost:8080
+```
+What happens on first boot:
+- `dataset-init` auto-downloads the full ORCAS dump (~330 MB) into the
+  `backend/data` volume (skips if already present).
+- `backend` waits for it, seeds PostgreSQL (~1.3M queries), builds the Trie.
+- `frontend` (nginx) serves the built UI and proxies `/suggest`, `/search`,
+  `/trending`, `/cache`, `/metrics` to the backend container.
+
+Later boots skip the download and seed (data persists in the `pgdata` volume and
+`backend/data`), so startup is fast.
+
+> **Re-seeding:** seeding only runs when PostgreSQL is empty. If you first booted
+> with the bundled sample, wipe volumes to load real data:
+> `docker compose down -v && docker compose up -d --build`.
+
+### Docker infra only — run backend natively against containers
+For backend development with hot reload, run just the data services in Docker and
+the backend on the host:
+```bash
+docker compose up -d redis-0 redis-1 redis-2 postgres dataset-init
 cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=docker
 ```
 
-### Full dataset
+### Full dataset (native runs)
 ```bash
-scripts/fetch-dataset.sh    # ORCAS ~330 MB, loaded next boot
+scripts/fetch-dataset.sh    # ORCAS ~330 MB → backend/data/orcas.tsv.gz, loaded next boot
 ```
+(The Docker stack downloads this automatically via `dataset-init`.)
 
 # Configuration
 
@@ -470,9 +505,9 @@ Rubric: Basic 60 ✅ · Trending 20 ✅ · Batch 20 ✅.
 
 ## Project layout
 ```
-backend/    Spring Boot service (Maven)
-frontend/   React + Vite UI
+backend/    Spring Boot service (Maven) + Dockerfile
+frontend/   React + Vite UI + Dockerfile + nginx.conf (serves SPA, proxies API)
 scripts/    dataset fetch + load test
 screenshots/
-docker-compose.yml
+docker-compose.yml   full stack: Redis x3 + Postgres + dataset-init + backend + frontend
 ```
